@@ -6,7 +6,7 @@
  */
 class OrderCoordinate extends ObjectModel {
 
-	public	$id;
+	public	$id_order_coordinate;
 	public	$id_order;
 	public	$latitude;
 	public	$longitude;
@@ -47,6 +47,12 @@ class OrderCoordinate extends ObjectModel {
 			foreach ($res AS $row)
 				$order_states[] = (int)$row;
 			return $order_states;
+	}
+	
+	public function updateCoord() {
+		$query = 'UPDATE `'._DB_PREFIX_.'order_coordinate ordcoord` SET latitude='.(float)$this->latitude.', longitude='.(float)$this->longitude.'
+							WHERE id_order_coordinate='.$this->id_order_coordinate;
+		Db::getInstance()->execute(trim($query));
 	}
 	
 

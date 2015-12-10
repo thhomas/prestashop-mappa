@@ -29,7 +29,7 @@ class Mappa extends Module {
 
 	public function install() {
 		if (!parent::install() ||
-				!$this->registerHook('actionPaymentConfirmation') ||
+				!$this->registerHook('actionOrderStatusUpdate') ||
 				!$this->installDb() ||
 				!$this->addAdminTab())
 			return false;
@@ -93,33 +93,48 @@ class Mappa extends Module {
 			`'._DB_PREFIX_.'order_coordinate`');
 	}
 	
-	public function hookActionPaymentConfirmation($params) {
+	public function hookActionOrderStatusUpdate($params) {
 		
 		include_once(dirname(__FILE__).'/classes/OrderCoordinate.php');
-		//$order = $this->getOrder();
+		print_r($params);
+		$order = $this->getOrder();
 		$order_address = $this->getOrderAddress($params['id_order']);
 		
+		$orderCoord = $this->getOrderCoordFromOrder($params['id_order']);
+		d($orderCoord);
+
 		$location = $this->getAddressCoordinate($order_address);
+		if(orderCoord == False) {
+			$orderCoord = new OrderCoordinate();
+			$orderCoord->latitude = $location['lat'];
+			$orderCoord->longitude = $location['lng'];
+			
+			$orderCoord->add($params['id_order']);
+		} else {
+			$orderCoord->latitude = $location['lat'];
+			$orderCoord->longitude = $location['lng'];
+			$orderCoord->updateCoord();
+		}
 		
-		$orderCoord = new OrderCoordinate();
-		$orderCoord->latitude = $location['lat'];
-		$orderCoord->longitude = $location['lng'];
 		
-		$orderCoord->add($params['id_order']);
 		
 	}
 	
-
-	public function getOrder($id_order) {
-		$res = Db::getInstance()->executeS('
-			SELECT ord.id_category, ord.id_product_comment_criterion
-			FROM `'._DB_PREFIX_.'product_comment_criterion_category` pccc
-			WHERE pccc.id_product_comment_criterion = '.(int)$id_order);
-		$criterions = array();
-		if ($res)
-			foreach ($res AS $row)
-				$criterions[] = (int)$row['id_category'];
-				return $criterions;
+	public function getOrderCoordFromOrder($id_order) {
+		$orderCoordFromDb = Db::getInstance()->getRow('
+			SELECT ordcoord.id_order_coordinate, ordcoord.latitude, ordcoord.longitude, ordcoord.altitude
+			FROM `'._DB_PREFIX_.'order_coordinate` ordcoord
+			WHERE ordcoord.id_order= '.(int)$id_order);
+		if($orderCoordFromDb == False) {
+			$orderCoord = False;
+		} else {
+			$orderCoord = new OrderCoordinate();
+			$orderCoord->id_order = $id_order;
+			$orderCoord->latitude = $orderCoordFromDb['latitude'];
+			$orderCoord->longitude = $orderCoordFromDb['longitude'];
+			$orderCoord->altitude = $orderCoordFromDb['altitude'];
+		}
+		return $orderCoord;
 	}
 	
 	public function getOrderAddress($id_order) {
@@ -146,6 +161,9 @@ class Mappa extends Module {
 		$req = "https://maps.googleapis.com/maps/api/geocode/json?address={$location}";
 		$curl = curl_init($req);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_HTTPPROXYTUNNEL, 1);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_setopt($ch, CURLOPT_PROXY, 'http://proxy.ign.fr:3128');
 		
 		$result = curl_exec($curl);
 		
