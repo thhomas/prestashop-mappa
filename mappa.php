@@ -30,6 +30,7 @@ class Mappa extends Module {
 	public function install() {
 		if (!parent::install() ||
 				!$this->registerHook('actionOrderStatusUpdate') ||
+				!$this->registerHook('displayHomeTab') ||
 				!$this->installDb() ||
 				!$this->addAdminTab())
 			return false;
@@ -93,30 +94,38 @@ class Mappa extends Module {
 			`'._DB_PREFIX_.'order_coordinate`');
 	}
 	
+	public function hookDisplayHomeTab($params) {
+		$this->context->smarty->assign(
+			array(
+					'my_module_name' => Configuration::get('Mappa'),
+					'my_module_link' => $this->context->link->getModuleLink('mappa', 'display')
+			)
+		);
+		$this->context->smarty->assign('orders', json_encode($this->getOrderCoordinates()));
+		
+		$this->context->controller->addCSS('http://openlayers.org/en/v3.11.2/css/ol.css', 'all');
+		$this->context->controller->addJS('http://openlayers.org/en/v3.11.2/build/ol.js', 'all');
+		//$this->context->controller->addJS($this->_path.'mappa.js', 'all');
+
+		return $this->display(__FILE__, 'mappa.tpl');
+	}
+	
 	public function hookActionOrderStatusUpdate($params) {
 		
 		include_once(dirname(__FILE__).'/classes/OrderCoordinate.php');
-		print_r($params);
-		$order = $this->getOrder();
-		$order_address = $this->getOrderAddress($params['id_order']);
-		
-		$orderCoord = $this->getOrderCoordFromOrder($params['id_order']);
-		d($orderCoord);
-
-		$location = $this->getAddressCoordinate($order_address);
-		if(orderCoord == False) {
+		$id_order = $params['id_order'];
+		if($params['newOrderStatus']->paid == 1) {		
+			$order_address = $this->getOrderAddress($params['id_order']);
+			$location = $this->getAddressCoordinate($order_address);
 			$orderCoord = new OrderCoordinate();
 			$orderCoord->latitude = $location['lat'];
 			$orderCoord->longitude = $location['lng'];
 			
-			$orderCoord->add($params['id_order']);
+			$orderCoord->add($id_order);
 		} else {
-			$orderCoord->latitude = $location['lat'];
-			$orderCoord->longitude = $location['lng'];
-			$orderCoord->updateCoord();
-		}
-		
-		
+			$orderCoord = $this->getOrderCoordFromOrder($id_order);
+			$orderCoord->delete();
+		}		
 		
 	}
 	
@@ -129,6 +138,7 @@ class Mappa extends Module {
 			$orderCoord = False;
 		} else {
 			$orderCoord = new OrderCoordinate();
+			$orderCoord->id_order_coordinate = $orderCoordFromDb['id_order_coordinate'];
 			$orderCoord->id_order = $id_order;
 			$orderCoord->latitude = $orderCoordFromDb['latitude'];
 			$orderCoord->longitude = $orderCoordFromDb['longitude'];
@@ -161,13 +171,18 @@ class Mappa extends Module {
 		$req = "https://maps.googleapis.com/maps/api/geocode/json?address={$location}";
 		$curl = curl_init($req);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_HTTPPROXYTUNNEL, 1);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_setopt($ch, CURLOPT_PROXY, 'http://proxy.ign.fr:3128');
 		
 		$result = curl_exec($curl);
 		
 		return json_decode($result, true)['results'][0]['geometry']['location'];
 	}	
+	
+	public function getOrderCoordinates() {
+		$address = Db::getInstance()->executeS('
+			SELECT latitude, longitude
+			FROM `'._DB_PREFIX_.'order_coordinate`');
+		
+		return $address;
+	}
 	
 }

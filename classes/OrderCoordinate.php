@@ -27,6 +27,8 @@ class OrderCoordinate extends ObjectModel {
 					'altitude' =>	array('type' => self::TYPE_FLOAT)
 			)
 	);
+
+	protected $webserviceParameters = array();
 	
 	
 	public function add($id_order) {
@@ -50,8 +52,14 @@ class OrderCoordinate extends ObjectModel {
 	}
 	
 	public function updateCoord() {
-		$query = 'UPDATE `'._DB_PREFIX_.'order_coordinate ordcoord` SET latitude='.(float)$this->latitude.', longitude='.(float)$this->longitude.'
+		$query = 'UPDATE `'._DB_PREFIX_.'order_coordinate` ordcoord SET latitude='.(float)$this->latitude.', longitude='.(float)$this->longitude.'
 							WHERE id_order_coordinate='.$this->id_order_coordinate;
+		Db::getInstance()->execute(trim($query));
+	}
+	
+	public function delete() {
+		$query = 'DELETE FROM `'._DB_PREFIX_.'order_coordinate` WHERE id_order_coordinate='.(int)$this->id_order_coordinate;
+		
 		Db::getInstance()->execute(trim($query));
 	}
 	
