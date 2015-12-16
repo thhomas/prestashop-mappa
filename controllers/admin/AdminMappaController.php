@@ -12,8 +12,9 @@ class AdminMappaController extends ModuleAdminController {
 	public function __construct() {
 		$this->context = Context::getContext();
 		parent::__construct();
+		
 	}
-	
+
 
 	public function renderForm() {
 	
@@ -45,9 +46,8 @@ class AdminMappaController extends ModuleAdminController {
 		);
 	
 		//what do we want to add to the default template
-		$more = $this->module->display($path, 'view/mappa.tpl');
-	
-		return $more.parent::renderForm();//add you own information to the rendered template
+		//$more = $this->module->display($path, 'view/mappa.tpl');
+		return parent::renderForm();//add you own information to the rendered template
 	}
 	
 
