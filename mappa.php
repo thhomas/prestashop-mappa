@@ -17,14 +17,17 @@ class Mappa extends Module {
 	public function __construct() {
 		$this->name = 'mappa';
 		$this->tab = 'Test';
-	    $this->version = 1.0;
-	    $this->author = 'Thomas Tilak';
-	    $this->need_instance = 0;
-	    
-	    parent::__construct();
+    $this->version = 1.0;
+    $this->author = 'Thomas Tilak';
+    $this->need_instance = 0;
 
-	    $this->displayName = $this->l('Mappa');
-	    $this->description = $this->l('Display order on map.');
+    $this->displayName = $this->l('Mappa');
+    $this->description = $this->l('Display order on map.');
+
+    // Message show when you wan to delete the module
+    $this->confirmUninstall = $this->l('Are you sure you want to delete this module ?');
+    
+    parent::__construct();
 	}
 
 	public function install() {
@@ -47,28 +50,37 @@ class Mappa extends Module {
 	
 
 	public function addAdminTab() {
-		// création de l'onglet
-		$tab = new Tab();
-		foreach(Language::getLanguages(false) as $lang)
-			$tab->name[(int) $lang['id_lang']] = 'Mappa';
-			// Nom du controller sans le mot clé "Controller"
-			$tab->class_name = 'AdminMappa';
-			$tab->module = $this->name;
-			$tab->id_parent = 15;
-			if (!$tab->save())
-				return false;
-				return true;
+		$id_parent = Tab::getIdFromClassName('AdminParentOrders');
+		$adminTab = new Tab();
+		$languages = Language::getLanguages(true);
+		$adminTab->name = array();
+		foreach($languages as $lang) {
+			$adminTab->name[$lang['id_lang']] = (('fr' == $lang['iso_code']) ? 'Carte des commandes': 'Order map');
+		}
+		$adminTab->class_name = 'AdminMappa';
+		$adminTab->module = $this->name;
+		$adminTab->id_parent = $id_parent;
+		$adminTab->active = true;
+		$adminTab->position = Tab::getNbTabs($id_parent);
+		
+		if (!$adminTab->save())
+			return false;
+		Configuration::updateValue('ADMIN_TAB_MODULE_MAPPA', $adminTab->id);
+			return true;
 	}
 	
 	
 	public function removeAdminTab() {
-		$classNames = array('admin_mappa' => 'AdminMappa');
-		$return = true;
-		foreach ($classNames as $key => $className) {
-			$tab = new Tab(Tab::getIdFromClassName($className));
-			$return &= $tab->delete();
+		$adminTabId = Configuration::get('ADMIN_TAB_MODULE_MAPPA');
+		
+		if(Tab::existsInDatabase($adminTabId, Tab::$definition['table'])) {
+			$adminTab = new Tab($adminTabId);
+			if(!$adminTab->delete()) 
+				return false;
+			return Configuration::deleteByName('ADMIN_TAB_MODULE_MAPPA');
 		}
-		return $return;
+		
+		return true;
 	}
 	
 	
@@ -184,5 +196,5 @@ class Mappa extends Module {
 		
 		return $address;
 	}
-	
+
 }

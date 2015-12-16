@@ -5,4 +5,4 @@
 <script type="text/javascript">
 	var ordersJson = '{$orders}';
 </script>
-<script type="text/javascript" src="modules/mappa/mappa.js"></script>
+<script type="text/javascript" src="{$base_dir}/modules/mappa/mappa.js"></script>
