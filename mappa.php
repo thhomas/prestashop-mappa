@@ -36,7 +36,12 @@ class Mappa extends Module {
 				!$this->registerHook('displayHomeTab') ||
 				!$this->installDb() ||
 				!$this->addAdminTab() ||
-				!Configuration::updateValue('MAPPA_NAME', 'Mappa'))
+				!Configuration::updateValue('MAPPA_NAME', 'Mappa') ||
+				!Configuration::updateValue('MAPPA_LATITUDE_CENTER_MAP', '46.57974665676104') ||
+				!Configuration::updateValue('MAPPA_LONGITUDE_CENTER_MAP', '2.403360346813283') ||
+				!Configuration::updateValue('MAPPA_ZOOM_MAP', '4') ||
+				!Configuration::updateValue('MAPPA_BASEMAP_NAME', 'osm') ||
+				!Configuration::updateValue('MAPPA_BASEMAP_TOKEN', ''));
 			return false;
 			return true;
 	}
@@ -44,7 +49,13 @@ class Mappa extends Module {
 	public function uninstall() {
 		if (!parent::uninstall() ||
 				!$this->uninstallDb() ||
-				!$this->removeAdminTab())
+				!$this->removeAdminTab() ||
+				!Configuration::deleteByName('MAPPA_NAME') ||
+				!Configuration::deleteByName('MAPPA_LATITUDE_CENTER_MAP') ||
+				!Configuration::deleteByName('MAPPA_LONGITUDE_CENTER_MAP') ||
+				!Configuration::deleteByName('MAPPA_ZOOM_MAP') ||
+				!Configuration::deleteByName('MAPPA_BASEMAP_NAME') ||
+				!Configuration::deleteByName('MAPPA_BASEMAP_TOKEN'))
 			return false;
 			return true;
 	}
@@ -115,12 +126,15 @@ class Mappa extends Module {
 			)
 		);
 		$this->context->smarty->assign('orders', json_encode($this->getOrderCoordinates()));
+		$this->context->smarty->assign('latitude_center', Configuration::get('MAPPA_LATITUDE_CENTER_MAP'));
+		$this->context->smarty->assign('longitude_center', Configuration::get('MAPPA_LONGITUDE_CENTER_MAP'));
+		$this->context->smarty->assign('zoom', Configuration::get('MAPPA_ZOOM_MAP'));
 		
 		$this->context->controller->addCSS('http://openlayers.org/en/v3.11.2/css/ol.css', 'all');
 		$this->context->controller->addJS('http://openlayers.org/en/v3.11.2/build/ol.js', 'all');
 		//$this->context->controller->addJS($this->_path.'mappa.js', 'all');
 
-		return $this->display(__FILE__, 'views/template/hook/mappa.tpl');
+		return $this->display(__FILE__, 'views/templates/hook/mappa.tpl');
 	}
 	
 	public function hookActionOrderStatusUpdate($params) {
@@ -204,14 +218,59 @@ class Mappa extends Module {
  
 	    if (Tools::isSubmit('submit'.$this->name)) {
 	        $mappa_name = strval(Tools::getValue('MAPPA_NAME'));
-	        if (!$mappa_name
-	          || empty($mappa_name)
-	          || !Validate::isGenericName($mappa_name))
-	            $output .= $this->displayError($this->l('Invalid Configuration value'));
-	        else
-	        {
-	            Configuration::updateValue('MAPPA_NAME', $mappa_name);
-	            $output .= $this->displayConfirmation($this->l('Settings updated'));
+	        $latitude_center_map = floatval(Tools::getValue('MAPPA_LATITUDE_CENTER_MAP'));
+	        $longitude_center_map = floatval(Tools::getValue('MAPPA_LONGITUDE_CENTER_MAP'));
+	        $zoom_map = intval(Tools::getValue('MAPPA_ZOOM_MAP'));
+	        $basemap_name = strval(Tools::getValue('MAPPA_BASEMAP_NAME'));
+	        if($mappa_name != strval(Configuration::get('MAPPA_NAME'))) {
+		        if (!$mappa_name 
+		          || empty($mappa_name)
+		          || !Validate::isGenericName($mappa_name))
+		            $output .= $this->displayError($this->l('Invalid Configuration value'));
+		        else {
+		            Configuration::updateValue('MAPPA_NAME', $mappa_name);
+		            $output .= $this->displayConfirmation($this->l('Settings updated'));
+		        }
+	        }
+	        if($latitude_center_map != floatval(Configuration::get('MAPPA_LATITUDE_CENTER_MAP'))) {
+		        if (!$latitude_center_map
+		        		|| empty($latitude_center_map)
+		        		|| !Validate::isFloat($latitude_center_map) 
+		        		|| $latitude_center_map > 90
+		        		|| $latitude_center_map < -90)
+		        	$output .= $this->displayError($this->l('Invalid Latitude value'));
+	        	else {
+	        		Configuration::updateValue('MAPPA_LATITUDE_CENTER_MAP', $latitude_center_map);
+	        		$output .= $this->displayConfirmation($this->l('Map center latitude updated'));
+	        	}
+	        }
+	        if($longitude_center_map != floatval(Configuration::get('MAPPA_LONGITUDE_CENTER_MAP'))) {
+		        if (!$longitude_center_map
+		        		|| empty($longitude_center_map)
+		        		|| !Validate::isFloat($longitude_center_map) 
+		        		|| $longitude_center_map > 180
+		        		|| $longitude_center_map < -180)
+		        	$output .= $this->displayError($this->l('Invalid Longitude value'));
+	        	else {
+	        		Configuration::updateValue('MAPPA_LONGITUDE_CENTER_MAP', $longitude_center_map);
+	        		$output .= $this->displayConfirmation($this->l('Map center longitude updated'));
+	        	}
+	        }
+	        if($zoom_map != intval(Configuration::get('MAPPA_ZOOM_MAP'))) {
+		        if (!$zoom_map
+		        		|| empty($zoom_map)
+		        		|| !Validate::isInt($zoom_map) 
+		        		|| $zoom_map < 0
+		        		|| $zoom_map > 22)
+		        	$output .= $this->displayError($this->l('Invalid Zoom value'));
+	        	else {
+	        		Configuration::updateValue('MAPPA_ZOOM_MAP', $zoom_map);
+	        		$output .= $this->displayConfirmation($this->l('Map zoom level updated'));
+	        	}
+	        }
+	        if($basemap_name != strval(Configuration::get('MAPPA_BASEMAP_NAME'))) {
+	        		Configuration::updateValue('MAPPA_BASEMAP_NAME', $basemap_name);
+	        		$output .= $this->displayConfirmation($this->l('Basemap updated'));
 	        }
 	    }
 	    return $output.$this->displayForm();
@@ -233,6 +292,46 @@ class Mappa extends Module {
 								'name' => 'MAPPA_NAME',
 								'size' => 20,
 								'required' => true
+						),
+						array(
+								'type' => 'text',
+								'label' => $this->l('Map center latitude'),
+								'name' => 'MAPPA_LATITUDE_CENTER_MAP',
+								'size' => 20,
+								'required' => true
+						),
+						array(
+								'type' => 'text',
+								'label' => $this->l('Map center longitude'),
+								'name' => 'MAPPA_LONGITUDE_CENTER_MAP',
+								'size' => 20,
+								'required' => true
+						),
+						array(
+								'type' => 'text',
+								'label' => $this->l('Map zoom level'),
+								'name' => 'MAPPA_ZOOM_MAP',
+								'size' => 4,
+								'required' => true
+						),
+						array(
+								'type' => 'select',
+								'label' => $this->l('Base map'),
+								'name' => 'MAPPA_BASEMAP_NAME',
+								'size' => 20,
+								'required' => true,
+								'options' => array(
+										array(
+												'id_option' => 1,
+												'name' => 'OpenStreetMap',
+												'value' => 'osm'
+										),
+										array(
+												'id_option' => 2,
+												'name' => 'Mapbox Custom',
+												'value' => 'mapbox'
+										)
+								)
 						)
 				),
 				'submit' => array(
@@ -240,6 +339,18 @@ class Mappa extends Module {
 						'class' => 'button'
 				)
 		);
+		
+		if(Tools::getValue('MAPPA_BASEMAP_NAME') == mapbox) {
+			array_push($fields_form[0]['form']['input'], array(
+					'type' => 'text',
+					'label' => $this->l('token'),
+					'name' => 'MAPPA_BASEMAP_TOKEN',
+					'size' => 20,
+					'required' => true
+			));
+		} else if(count($fields_form[0]['form']['input']) == 5) {
+			unset($fields_form[0]['form']['input'][4]);
+		}
 		 
 		$helper = new HelperForm();
 		 
@@ -273,6 +384,10 @@ class Mappa extends Module {
 		 
 		// Load current value
 		$helper->fields_value['MAPPA_NAME'] = Configuration::get('MAPPA_NAME');
+		$helper->fields_value['MAPPA_LATITUDE_CENTER_MAP'] = Configuration::get('MAPPA_LATITUDE_CENTER_MAP');
+		$helper->fields_value['MAPPA_LONGITUDE_CENTER_MAP'] = Configuration::get('MAPPA_LONGITUDE_CENTER_MAP');
+		$helper->fields_value['MAPPA_ZOOM_MAP'] = Configuration::get('MAPPA_ZOOM_MAP');
+		$helper->fields_value['MAPPA_BASEMAP_NAME'] = Configuration::get('MAPPA_BASEMAP_NAME');
 		 
 		return $helper->generateForm($fields_form);
 	}
